@@ -13,4 +13,9 @@ temperaturalinha = 122
 temperaturalinha = 122 + 460 # R
 #temperaturalinha = Scalar(122, "F") # °F
 #temperaturalinhaconvertida = ChangeScalars(temperaturalinha, "R")
-correlations.FaseGas(correlation="Papay", dg=densidaderelativagas, P=pressaolinha, T=temperaturalinha)
+
+Z, Cg, μ = correlations.FaseGas(correlation="Papay", dg=densidaderelativagas, P=pressaolinha, T=temperaturalinha).output()
+
+print('Fator Z: ',Z)
+print('Compressibilidade do gás: ',Cg)
+print('Viscosidade do gás: ', μ)
