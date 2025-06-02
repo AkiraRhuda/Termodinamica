@@ -9,16 +9,10 @@ class GasPhase_Correlations:
 
     Parâmetros
     ----------
-    do : float
-        Densidade do óleo
     dg : float
         Densidade do gás
-    API : float
-        Grau API
     P : float
         Pressão
-    Pb : float
-        Pressão de bolha
     T : float
         Temperatura
     """
