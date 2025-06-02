@@ -3,7 +3,25 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 class GasPhase_Correlations:
+    """
+    Classe contendo funções que calculam a viscosidade do gás, sua compressibilidade e sua massa específica.
+    Usa correlação de Papay para encontrar o fator Z e Lee para encontrar a viscosidade.
 
+    Parâmetros
+    ----------
+    do : float
+        Densidade do óleo
+    dg : float
+        Densidade do gás
+    API : float
+        Grau API
+    P : float
+        Pressão
+    Pb : float
+        Pressão de bolha
+    T : float
+        Temperatura
+    """
     def __init__(self, dg, P, T):
         
         if dg == None:
@@ -104,8 +122,41 @@ class GasPhase_Correlations:
     def Cg(self):
         return self.Cpr()/self.Ppc
 
-class OilPhase_Correlations:
+    def output(self):
+        rho_g = GasPhase_Correlations(self.dg, self.P, self.T).rho_g()
+        #Z = GasPhase_Correlations(self.dg, self.P, self.T).Z()
+        Cg = GasPhase_Correlations(self.dg, self.P, self.T).Cg()
+        mu = GasPhase_Correlations(self.dg, self.P, self.T).mu_lee1966()
+        #Bg = GasPhase_Correlations(self.dg, self.P, self.T).Bg()
 
+        print('Massa específica do gás: ', rho_g)  # bateu
+        #print('Fator Z: ', Z)  # bateu
+        print('Compressibilidade do gás: ', Cg)  # bateu
+        print('Viscosidade do gás: ', mu)  # N bateu
+        #print('Bg: ', Bg)  # bateu
+        return rho_g, Cg, mu
+
+class OilPhase_Correlations:
+    """
+    Classe contendo funções que calculam as viscosidades do óleo, sua compressibilidade e sua massa específica.
+    Usa das correlações de Beggs e Robinson para calcular as viscosidades e a correlação Standing para calcular a
+    compressibilidade.
+
+    Parâmetros
+    ----------
+    do : float
+        Densidade do óleo
+    dg : float
+        Densidade do gás
+    API : float
+        Grau API
+    P : float
+        Pressão
+    Pb : float
+        Pressão de bolha
+    T : float
+        Temperatura
+    """
     def __init__(self, do, dg, API, P, Pb, T):
 
         self.Pb = Pb
@@ -185,3 +236,20 @@ class OilPhase_Correlations:
         a = 10.715 * (self.Rs() + 100)**(-0.515)
         b = 5.44 * (self.Rs() + 150)**(-0.338)
         return a * self.mu_od()**b
+
+    def output(self):
+        #Rs = OilPhase_Correlations(do=self.do, dg=self.dg, API=None, P=self.P, Pb=self.Pb, T=self.T).Rs()
+        #Bo = OilPhase_Correlations(do=self.do, dg=self.dg, API=None, P=self.P, Pb=self.Pb, T=self.T).Bo()
+        rho_o = OilPhase_Correlations(do=self.do, dg=self.dg, API=None, P=self.P, Pb=self.Pb, T=self.T).rho_o()
+        Co = OilPhase_Correlations(do=self.do, dg=self.dg, API=None, P=self.P, Pb=self.Pb, T=self.T).Co()
+        mu_od = OilPhase_Correlations(do=self.do, dg=self.dg, API=None, P=self.P, Pb=self.Pb, T=self.T).mu_od()
+        mu_ob = OilPhase_Correlations(do=self.do, dg=self.dg, API=None, P=self.P, Pb=self.Pb, T=self.T).mu_ob()
+
+        #print('Razão de solubilidade gás-óleo: ', Rs)  # bateu
+        #print('Fator volume- formação do óleo: ', Bo)  # bateu
+        print('Massa específica do óleo: ', rho_o)  # bateu
+        print('Compressibilidade do óleo: ', Co)  # será q bateu?
+        print('Viscosidade do óleo morto: ', mu_od)  # bateu
+        print('Viscosidade do óleo saturado: ', mu_ob)  # bateu
+        return rho_o, Co, mu_od, mu_ob
+

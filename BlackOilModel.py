@@ -4,7 +4,9 @@ import matplotlib.pyplot as plt
 
 class GasPhase:
     """
-    Parametros
+    Classe para calcular compressibilidade, viscosidade e massa específica na fase gás
+
+    Parâmetros
     ----------
     zcorrelation : str
         Informa a correlação a ser usada para calcular o fator Z - suporta somente Papay
@@ -117,11 +119,16 @@ class GasPhase:
         self.Cg = self.Cpr/self.Ppc
 
     def output(self):
+        print('Massa específica do gás: ', self.ρ)
+        print('Compressibilidade do gás: ', self.Cg)  # bateu
+        print('Viscosidade do gás: ', self.μ)  # bateu
         return self.ρ, self.Cg, self.μ
     
 class OilPhase:
     """
-    Parametros
+    Classe para calcular compressibilidade, viscosidades e massa específica na fase óleo
+
+    Parâmetros
     ----------
     soluratiocorrelation : str
         Informa a correlação a ser usada para calcular a razão de solubilidade - suporta somente Standing
@@ -215,7 +222,7 @@ class OilPhase:
             dem = 0.0007141 * (self.P - self.Pb) - 12.938
             self.Co = 1e-6 * np.exp(num/dem)
         else:
-            self.Co = -1/self.Bo * self.dBodP + GasPhase("Papay", "Lee", dg=0.84, P=3626, T=122+460).Bg()/self.Bo * self.dRsdP
+            self.Co = -1/self.Bo * self.dBodP + GasPhase("Papay", "Lee", dg=self.dg, P=self.P, T=self.T+460).Bg()/self.Bo * self.dRsdP
     # Oil density #
 
     def ρ_ob(self):
@@ -244,4 +251,8 @@ class OilPhase:
         self.μob = coeff*self.μod**exp
     
     def output(self):
+        print('Massa específica do óleo: ', self.ρo)  # bateu
+        print('Compressibilidade do óleo: ', self.Co)  # será q bateu?
+        print('Viscosidade do óleo morto: ', self.μod)  # bateu
+        print('Viscosidade do óleo saturado: ', self.μob)  # bateu
         return self.ρo, self.Co, self.μod, self.μob
