@@ -266,7 +266,7 @@ class OilPhase:
         else:
             type = "Modelo não aplicável - Óleo não é Black-Oil ou óleo volátil"
             raise Exception(type)
-        print('* Tipo de fluído: ', type, '*')
+        print('* Tipo de fluido: ', type, '*')
     
     def output(self):
         print(f'Massa específica do óleo: {self.ρo:.2f} lbm/ft³')
