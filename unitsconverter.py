@@ -1,7 +1,5 @@
 """
 Módulo para conversão de unidades de temperatura e pressão.
-Fornece métodos estáticos para conversão entre diferentes escalas termométricas
-e unidades de pressão comumente usadas em engenharia e ciências.
 
 Métodos:
 ----------
