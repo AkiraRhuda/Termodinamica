@@ -1,17 +1,16 @@
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import unitsconverter
 
 class GasPhase:
     """
-    Classe para calcular compressibilidade, viscosidade e massa específica na fase gás
+    Classe para calcular compressibilidade, viscosidade e massa específica na fase gás.
 
-    Parâmetros
+    Parâmetros:
     ----------
     zcorrelation : str
-        Informa a correlação a ser usada para calcular o fator Z - suporta somente Papay
+        Informa a correlação a ser usada para calcular o fator Z - suporta somente Papay (1985)
     μcorrelation : str
-        Informa a correlação a ser usada para calcular a viscosidade do gás - suporta Lee e Dempsey
+        Informa a correlação a ser usada para calcular a viscosidade do gás - suporta Lee et al (1966) e Dempsey (1965)
     P : float
         Pressao absoluta
     Ppc : float
@@ -61,7 +60,7 @@ class GasPhase:
         self.ρ = (self.P * self.Mg)/(self.Z * R * self.T)
         
     def Bg(self):
-        return self.Psc/(self.Tsc) * self.Z * (self.T-460)/self.P
+        return self.Psc/(self.Tsc) * self.Z * unitsconverter.Temperature(self.T, 'R', 'F')/self.P
         
     def zfactcorrelselector(self):
         if self.zcorrelation == "Papay":
@@ -97,8 +96,8 @@ class GasPhase:
         
     def dempsey(self):
         self.μΔgN2, self.μΔgCO2, self.μΔgH2S = 0, 0, 0
-        
-        μgncorrigida = (1.709e-5 - 2.062e-6*self.dg)*(self.T-460) + 8.188e-3-6.15e-3*np.log10(self.dg)
+
+        μgncorrigida = (1.709e-5 - 2.062e-6*self.dg)*unitsconverter.Temperature(self.T, 'R', 'F') + 8.188e-3-6.15e-3*np.log10(self.dg)
         
         self.μg = μgncorrigida + self.μΔgN2 + self.μΔgCO2 + self.μΔgH2S
         
@@ -114,28 +113,28 @@ class GasPhase:
 
     def compressisoterm(self):
         Ppr = self.Ppr
-        dx = 10**-10
+        dx = 0.5 * 10 ** (-12)
         self.Cpr = 1/self.Ppr - 1/self.Z * (self.papay(Ppr+dx)-self.papay(Ppr))/dx
         self.Cg = self.Cpr/self.Ppc
 
     def output(self):
-        print('Massa específica do gás: ', self.ρ)
-        print('Compressibilidade do gás: ', self.Cg)  # bateu
-        print('Viscosidade do gás: ', self.μ)  # bateu
+        print(f'Massa específica do gás: {self.ρ:.4f} lbm/ft³')
+        print(f'Compressibilidade do gás: {self.Cg:.4e} psi⁻¹')
+        print(f'Viscosidade do gás: { self.μ:.4f} cp')
         return self.ρ, self.Cg, self.μ
-    
+
 class OilPhase:
     """
-    Classe para calcular compressibilidade, viscosidades e massa específica na fase óleo
+    Classe para calcular compressibilidade, viscosidades e massa específica na fase óleo.
 
-    Parâmetros
+    Parâmetros:
     ----------
     soluratiocorrelation : str
-        Informa a correlação a ser usada para calcular a razão de solubilidade - suporta somente Standing
+        Informa a correlação a ser usada para calcular a razão de solubilidade - suporta somente Standing (1947)
     oilvolcorrelation : str
-         Informa a correlação a ser usada para calcular a compressibilidade isotérmica do óleo e o fator volume-formação do óleo - suporta somente Standing
+         Informa a correlação a ser usada para calcular a compressibilidade isotérmica do óleo e o fator volume-formação do óleo - suporta somente Standing (1947)
     oilviscosityselector : str
-        Informa a correlação a ser usada para calcular as viscosidades do óleo morto e saturado - suporta somente Beggs
+        Informa a correlação a ser usada para calcular as viscosidades do óleo morto e saturado - suporta somente Brill e Beggs (1974)
     do : float
         densidade relativa do óleo
     dg : float
@@ -146,6 +145,8 @@ class OilPhase:
         Pressao de bolha
     T : float
         Temperatura
+    units : list
+        Lista com unidades de [pressão, temperatura], respectivamente
     """
     def __init__(self, soluratiocorrelation, oilvolcorrelation, oilviscosityselector, do=None, dg=None, P=None, Pb=None, T=None):
         
@@ -222,7 +223,7 @@ class OilPhase:
             dem = 0.0007141 * (self.P - self.Pb) - 12.938
             self.Co = 1e-6 * np.exp(num/dem)
         else:
-            self.Co = -1/self.Bo * self.dBodP + GasPhase("Papay", "Lee", dg=self.dg, P=self.P, T=self.T+460).Bg()/self.Bo * self.dRsdP
+            self.Co = -1/self.Bo * self.dBodP + GasPhase("Papay", "Lee", dg=self.dg, P=self.P, T=unitsconverter.Temperature(self.T, 'F', 'R')).Bg()/self.Bo * self.dRsdP
     # Oil density #
 
     def ρ_ob(self):
@@ -251,8 +252,8 @@ class OilPhase:
         self.μob = coeff*self.μod**exp
     
     def output(self):
-        print('Massa específica do óleo: ', self.ρo)  # bateu
-        print('Compressibilidade do óleo: ', self.Co)  # será q bateu?
-        print('Viscosidade do óleo morto: ', self.μod)  # bateu
-        print('Viscosidade do óleo saturado: ', self.μob)  # bateu
+        print(f'Massa específica do óleo: {self.ρo:.2f} lbm/ft³')
+        print(f'Compressibilidade do óleo: {self.Co:.4e} psi⁻¹')
+        print(f'Viscosidade do óleo morto: {self.μod:.3f} cp')
+        print(f'Viscosidade do óleo saturado: {self.μob:.3f} cp')
         return self.ρo, self.Co, self.μod, self.μob
