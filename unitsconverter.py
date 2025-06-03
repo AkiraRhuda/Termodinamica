@@ -28,8 +28,6 @@ Retorna:
         - psi (libra-força por polegada quadrada)
         - psia (psi absoluto - mesmo valor numérico que psi)
         - Pa (Pascal)
-        - kPa (quilopascal)
-        - MPa (megapascal)
         - bar
         - atm (atmosfera padrão)
     """
@@ -78,7 +76,7 @@ def Temperature(value, from_unity, to_unity):
     raise ValueError(f"Conversão de {from_unity} para {to_unity} não suportada")
 
 
-def Pressure(value, from_unity, to_unity='psi'):
+def Pressure(value, from_unity, to_unity):
 
     if to_unity == 'psi':
         if from_unity == 'Pa':
