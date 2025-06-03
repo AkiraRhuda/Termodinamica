@@ -260,7 +260,7 @@ class OilPhase:
                 type = "Óleo volátil"
             else:
                 type = "Necessário determinar RGO para caracterizar o fluído"
-        elif 45 < self.API <= 50:
+        elif 45 < self.API <= 55:
             type = "Óleo volátil"
 
         else:
