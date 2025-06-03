@@ -164,6 +164,7 @@ class OilPhase:
         self.ρ_ob()
         self.ρ_o()
         self.oilvisccorrelationselector()
+        self.oilclassifier()
         
     
     def initialproperties(self):
@@ -250,6 +251,22 @@ class OilPhase:
         coeff = 10.715*(self.Rs+100)**(-0.515)
         exp = 5.44*(self.Rs+150)**(-0.338)
         self.μob = coeff*self.μod**exp
+
+    def oilclassifier(self):
+        if self.API < 40:
+            type = "Black-Oil"
+        elif 40 <= self.API <= 45:
+            if self.Bo >= 2:
+                type = "Óleo volátil"
+            else:
+                type = "Necessário determinar RGO para caracterizar o fluído"
+        elif 45 < self.API <= 50:
+            type = "Óleo volátil"
+
+        else:
+            type = "Modelo não aplicável - Óleo não é Black-Oil ou óleo volátil"
+            raise Exception(type)
+        print('* Tipo de fluído: ', type, '*')
     
     def output(self):
         print(f'Massa específica do óleo: {self.ρo:.2f} lbm/ft³')
