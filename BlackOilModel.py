@@ -66,7 +66,7 @@ class GasPhase:
         if self.zcorrelation == "Papay":
             self.papay()
         else:
-            Exception('Correlação não encontrada')
+            raise Exception('Correlação não encontrada')
 
     def μfactcorrelselector(self):
         if self.μcorrelation == "Lee":
@@ -74,7 +74,7 @@ class GasPhase:
         elif self.μcorrelation == "Dempsey":
             self.dempsey()
         else:
-            Exception('Correlação não encontrada')
+            raise Exception('Correlação não encontrada')
             
     # Z factor correlations #
 
