@@ -161,7 +161,6 @@ class OilPhase:
         self.initialproperties()
         self.soluratio()
         self.oilvolforcorrelationselector()
-        self.ρ_ob()
         self.ρ_o()
         self.oilvisccorrelationselector()
         self.oilclassifier()
@@ -220,6 +219,7 @@ class OilPhase:
     
     def standingCo(self):
         if self.P >= self.Pb:
+            self.ρ_ob()
             num = self.ρob + 0.004347 * (self.P - self.Pb) - 79.1
             dem = 0.0007141 * (self.P - self.Pb) - 12.938
             self.Co = 1e-6 * np.exp(num/dem)
@@ -228,7 +228,7 @@ class OilPhase:
     # Oil density #
 
     def ρ_ob(self):
-        pass
+        raise NotImplementedError('Função não implementada!')
     
     def ρ_o(self):
         if self.P > self.Pb:
