@@ -26,7 +26,7 @@ def newtonraphson(xo, f, df, Eppara):
 
     
     return roots[-1], erro
-
+"""
 class Rachford_Rice:
     def __init__(self, z, K, Vchute=None):
         self.K = K
@@ -54,16 +54,25 @@ class Rachford_Rice:
         V, _ = newtonraphson(self.Vchute, self.rachford_rice, self.drachford_rice, 10 ** -3)
         L = 1 - V
         return V, L
+"""
 
 
 class Flash_Algorithm:
 
-    def __init__(self, T=None, Tc=None, P=None, Pc=None, z=None, x=None, y=None, EEC=None, PM=None, Vc=None, Zc=None, w=None, K=None, Vchute=None):
+    def __init__(self, T=None, Tc=None, P=None, Pc=None, z=None, x=None, y=None, EEC=None, kij=None, PM=None, Vc=None, Zc=None, w=None, K=None, Vchute=None):
         self.T, self.Tc, self.P, self.Pc, self.z = T, Tc, P, Pc, z
         self.eec, self.PM, self.Vc, self.Zc, self.w = EEC, PM, Vc, Zc, w
-        self.K, self.Vchute = K, Vchute
+        self.kij, self.K, self.Vchute = kij, K, Vchute
         self.R = 8.314
         self.x, self.y = x, y
+
+        if kij is not None:
+            self.kij = kij
+        else:
+            self.kij = 0
+
+        if Vchute is None:
+            self.Vchute = 0.5
 
         if self.Tc is not None and self.Pc is not None:
             if len(self.Pc) == len(self.Tc):
@@ -98,12 +107,9 @@ class Flash_Algorithm:
             else:
                 self.EEC()
 
-        else:
-            self.execute()
-
     def execute(self):
         self.wilson_correlation()
-        Rachford_Rice(z=self.z, K=self.K, Vchute=self.Vchute)
+        self.Rachford_Rice(V=self.Vchute)
         self.calculate_molar_fractions()
         self.EEC()
 
@@ -112,7 +118,6 @@ class Flash_Algorithm:
         for i in range(len(self.w)):
             self.K[i] = self.Pc[i]/self.P*np.exp(5.37*(1+self.w[i])*(1-self.Tc[i]/self.T))
 
-    """    
     def Rachford_Rice(self, V):
         soma = 0
         for i in range(len(self.K)):
@@ -130,7 +135,7 @@ class Flash_Algorithm:
     def calculate_LV(self):
         self.V, _ = newtonraphson(self.Vchute, self.Rachford_Rice, self.dRachford_Rice, 10**-3)
         self.L = 1 - self.V
-    """
+        return self.V, self.L
 
     def calculate_molar_fractions(self):
         self.x, self.y = np.zeros(len(self.z)), np.zeros(len(self.z))
@@ -150,8 +155,8 @@ class Flash_Algorithm:
             return 0.480 + 1.574*w - 0.176*w**2
 
     def mixture(self):
-        kij = 0 # Coeficiente de interação química
         prod_x = 1
+        prod_y = 1
         bgas, bliq = 0, 0
         agas, aliq = 0, 0
         a = np.zeros(len(self.x))
@@ -160,23 +165,27 @@ class Flash_Algorithm:
         self.A = np.zeros(len(self.x))
 
 
-        for i in range(len(self.x)):
-            prod_x = prod_x*self.x[i]
-        Aij = np.sqrt(prod_x)*(1-kij)
+
 
         for i in range(len(self.y)):
             b[i] = self.omegab*self.Pr[i]/self.Tr[i]
         for i in range(len(self.x)):
             a[i] = self.omegaa*self.Pr[i]/self.Tr[i]**2 * (1+self.M(self.w[i])*(1-np.sqrt(self.Tr[i])))**2
 
+        for i in range(len(self.x)):
+            prod_x = prod_x*a[i]
+            prod_y = prod_y*b[i]
+        Aij_x = np.sqrt(prod_x)*(1-self.kij)
+        Aij_y = np.sqrt(prod_y) * (1-self.kij)
+
         for i in range(len(self.y)):
             for j in range(len(self.x)):
                 if i == j:
-                    aliq += self.x[i]*self.x[j]
-                    agas += self.y[i]*self.y[j]
+                    aliq += self.x[i]*self.x[j]*a[i]
+                    agas += self.y[i]*self.y[j]*a[i]
                 else:
-                    aliq += self.x[i]*self.x[j]*Aij
-                    agas += self.y[i]*self.y[j]*Aij
+                    aliq += self.x[i]*self.x[j]*Aij_x
+                    agas += self.y[i]*self.y[j]*Aij_y
 
         for i in range(len(self.y)):
             bliq += self.x[i] * b[i]
@@ -211,7 +220,7 @@ class Flash_Algorithm:
         Z3 = np.zeros(len(self.x))
         self.Z = np.zeros(len(self.x))
         for i in range(len(self.x)):
-            xo = 0
+            xo = 1
             self.Zcoef(self.A[i],self.B[i], self.delta1, self.delta2)
             Z1[i], _ = newtonraphson(xo, f=self.Zfunction, df=self.dZfunction, Eppara=10**-6)
             # Regra de Briot-Ruffini #
@@ -222,16 +231,23 @@ class Flash_Algorithm:
             delta = b**2 - 4*a*c
             if delta == 0:
                 Z2[i] = -b/(2*a)
-                if self.gibbs_energy(Z2[i], i)>self.gibbs_energy(Z1[i], i):
-                    self.Z[i] = self.Z1[i]
-                else:
+                if Z1[i] < 0:
                     self.Z[i] = Z2[i]
+                elif Z2[i] < 0:
+                    self.Z[i] = Z1[i]
+                else:
+                    if self.gibbs_energy(Z2[i], i)>self.gibbs_energy(Z1[i], i):
+                        self.Z[i] = Z1[i]
+                    else:
+                        self.Z[i] = Z2[i]
             elif delta > 0:
                 Z2[i] = (-b+np.sqrt(delta))/(2*a)
                 Z3[i] = (-b-np.sqrt(delta))/(2*a)
                 Zmin = min([Z1[i], Z2[i], Z3[i]])
                 Zmax = max([Z1[i], Z2[i], Z3[i]])
                 roots_energy = np.array([self.gibbs_energy(Zmin, i), self.gibbs_energy(Zmax, i)])
+
+
                 if roots_energy[0]>roots_energy[1]:
                     self.Z[i] = Zmax
                 else:
