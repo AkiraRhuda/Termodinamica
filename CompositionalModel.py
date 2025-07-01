@@ -90,7 +90,7 @@ class Flash_Algorithm:
             raise Exception('EEC deve ser SRK (Soave-Redlich-Kwong) ou PR (Peng-Robinson)!')
 
         if K is None:
-            self.K()
+            self.wilson_correlation()
 
         if x is not None and y is not None:
             if len(self.x) != len(self.y):
@@ -102,12 +102,12 @@ class Flash_Algorithm:
             self.execute()
 
     def execute(self):
-        self.K()
+        self.wilson_correlation()
         Rachford_Rice(z=self.z, K=self.K, Vchute=self.Vchute)
         self.calculate_molar_fractions()
         self.EEC()
 
-    def K(self):
+    def wilson_correlation(self):
         self.K = np.zeros(len(self.w))
         for i in range(len(self.w)):
             self.K[i] = self.Pc[i]/self.P*np.exp(5.37*(1+self.w[i])*(1-self.Tc[i]/self.T))
@@ -157,6 +157,7 @@ class Flash_Algorithm:
         a = np.zeros(len(self.x))
         b = np.zeros(len(self.y))
         self.B = np.zeros(len(self.x))
+        self.A = np.zeros(len(self.x))
 
 
         for i in range(len(self.x)):
@@ -186,9 +187,10 @@ class Flash_Algorithm:
         self.A[0] = aliq * self.P / (self.R * self.T)**2
         self.A[1] = agas * self.P / (self.R * self.T)**2
 
-    def Gibbs(self, Z):
-        self.gibbs = ((Z-1)-np.log(Z-self.B)
-                      -self.A/((self.delta1-self.delta2)*self.B)*np.log((Z+self.delta1*self.B)/(Z+self.delta2*self.B)))
+    def gibbs_energy(self, Z, i):
+        self.gibbs = ((Z-1)-np.log(Z-self.B[i])
+                      -self.A[i]/((self.delta1-self.delta2)*self.B[i])*np.log((Z+self.delta1*self.B[i])/(Z+self.delta2*self.B[i])))
+        return self.gibbs
 
     def Zcoef(self, A, B, delta1, delta2):
         self.C1 = 1 # Z**3
@@ -203,35 +205,41 @@ class Flash_Algorithm:
         return 3*self.C1*Z**2 + 2*self.C2*Z + self.C3
     
     def EEC(self):
-        A, B = self.mixture()
-        xo = 0
-        self.Zcoef(A,B, self.delta1, self.delta2)
-        Z1, _ = newtonraphson(xo, f=self.Zfunction, df=self.dZfunction, Eppara=10**-6)
-        # Regra de Briot-Ruffini #
-        a = self.C1
-        b = a*Z1+self.C2
-        c = b*Z1+self.C3
-        #d = c*Z1+C3
-        delta = b**2 - 4*a*c
-        if delta == 0:
-            Z2 = -b/(2*a)
-            if self.gibbs(Z2)>self.gibbs(Z1):
-                self.Z = self.Z1
+        self.mixture()
+        Z1 = np.zeros(len(self.x))
+        Z2 = np.zeros(len(self.x))
+        Z3 = np.zeros(len(self.x))
+        self.Z = np.zeros(len(self.x))
+        for i in range(len(self.x)):
+            xo = 0
+            self.Zcoef(self.A[i],self.B[i], self.delta1, self.delta2)
+            Z1[i], _ = newtonraphson(xo, f=self.Zfunction, df=self.dZfunction, Eppara=10**-6)
+            # Regra de Briot-Ruffini #
+            a = self.C1
+            b = a*Z1[i]+self.C2
+            c = b*Z1[i]+self.C3
+            #d = c*Z1+C3
+            delta = b**2 - 4*a*c
+            if delta == 0:
+                Z2[i] = -b/(2*a)
+                if self.gibbs_energy(Z2[i], i)>self.gibbs_energy(Z1[i], i):
+                    self.Z[i] = self.Z1[i]
+                else:
+                    self.Z[i] = Z2[i]
+            elif delta > 0:
+                Z2[i] = (-b+np.sqrt(delta))/(2*a)
+                Z3[i] = (-b-np.sqrt(delta))/(2*a)
+                Zmin = min([Z1[i], Z2[i], Z3[i]])
+                Zmax = max([Z1[i], Z2[i], Z3[i]])
+                roots_energy = np.array([self.gibbs_energy(Zmin, i), self.gibbs_energy(Zmax, i)])
+                if roots_energy[0]>roots_energy[1]:
+                    self.Z[i] = Zmax
+                else:
+                    self.Z[i] = Zmin
             else:
-                self.Z = Z2
-        elif delta > 0:
-            Z2 = (-b+np.sqrt(delta))/(2*a)
-            Z3 = (-b-np.sqrt(delta))/(2*a)
-            Zmin = min([Z1, Z2, Z3])
-            Zmax = max([Z1, Z2, Z3])
-            if self.gibbs(Zmin)>self.gibbs(Zmax):
-                self.Z = self.Zmax
-            else:
-                self.Z = Zmin
-        else:
-            self.Z = Z1
+                self.Z[i] = Z1[i]
 
-    def calculateZ(self):
+    def calculateZ_phase(self):
         pass
 
     def fugacidade(self):
@@ -240,7 +248,7 @@ class Flash_Algorithm:
             self.fL[i] = self.phiL[i]*self.x[i]*self.P
             self.fV[i] = self.phiV[i]*self.y[i]*self.P
 
-    def teste(self):
+    def test(self):
         soma = 0
         for i in range(len(self.y)):
             soma += (self.fL[i]/self.fV[i] - 1)**2
@@ -251,3 +259,4 @@ class Flash_Algorithm:
         else:
             for i in range(len(self.y)):
                 self.K[i] = self.K[i]*(self.fL[i]/self.fV[i])
+                self.execute()
