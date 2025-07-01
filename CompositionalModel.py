@@ -28,14 +28,26 @@ def newtonraphson(xo, f, df, Eppara):
     return roots[-1], erro
 
 
-class CompositionalModel:
+class Flash_Algorithm:
 
-    def __init__(self, T=None, Tc=None, P=None, Pc=None, z=None, xc=None, yc=None, EEC=None, PM=None, Vc=None, Zc=None, w=None, K=None, Vchute=None, calculateonly=None):
+    def __init__(self, T=None, Tc=None, P=None, Pc=None, z=None, x=None, y=None, EEC=None, PM=None, Vc=None, Zc=None, w=None, K=None, Vchute=None, calculateonly=None):
         self.T, self.Tc, self.P, self.Pc, self.z = T, Tc, P, Pc, z
         self.eec, self.PM, self.Vc, self.Zc, self.w = EEC, PM, Vc, Zc, w
         self.K = K
         self.R = 8.314
-        self.xc, self.yc = xc, yc
+        self.x, self.y = x, y
+
+        if self.Tc is not None and self.Pc is not None:
+            if len(self.Pc) == len(self.Tc):
+                self.Pr = np.zeros(len(self.Pc))
+                self.Tr = np.zeros(len(self.Tc))
+                for i in range(len(self.Pc)):
+                    self.Pr[i] = self.P/self.Pc[i]
+                    self.Tr[i] = self.T/self.Tc[i]
+
+            else:
+                raise Exception('Faltam dados de temperatura ou pressão!')
+
         if EEC == 'PR' or EEC == 'Peng-Robinson':
             self.omegaa = 0.45724
             self.omegab = 0.0778
@@ -60,9 +72,9 @@ class CompositionalModel:
             self.calculate_LV()
             print('O V calculado é: ',self.V)
             print('O L calculado é: ',self.L)
-        elif xc is not None and yc is not None:
-            if len(self.xc) != len(self.yc):
-                raise Exception('xc e yc devem ter o mesmo tamanho!')
+        elif x is not None and y is not None:
+            if len(self.x) != len(self.y):
+                raise Exception('x e y devem ter o mesmo tamanho!')
             else:
                 self.EEC()
 
@@ -99,10 +111,10 @@ class CompositionalModel:
         self.L = 1 - self.V
 
     def calculate_molar_fractions(self):
-        self.xc, self.yc = np.zeros(len(self.z)), np.zeros(len(self.z))
+        self.x, self.y = np.zeros(len(self.z)), np.zeros(len(self.z))
         for i in range(len(self.z)):
-            self.xc[i] = self.z[i]/(1+self.V*(self.K[i]-1))
-            self.yc[i] = self.K[i]*self.z[i]/(1+self.V*(self.K[i]-1))
+            self.x[i] = self.z[i]/(1+self.V*(self.K[i]-1))
+            self.y[i] = self.K[i]*self.z[i]/(1+self.V*(self.K[i]-1))
 
     ### EEC ###
 
@@ -120,31 +132,32 @@ class CompositionalModel:
         prod_x = 1
         bgas, bliq = 0, 0
         agas, aliq = 0, 0
-        a = np.zeros(len(self.xc))
-        b = np.zeros(len(self.yc))
+        a = np.zeros(len(self.))
+        b = np.zeros(len(self.y))
+        self.B = np.zeros(len(self.x))
 
-        for i in range(len(self.xc)):
-            prod_x = prod_x*self.xc[i]
+
+        for i in range(len(self.x)):
+            prod_x = prod_x*self.x[i]
         Aij = np.sqrt(prod_x)*(1-kij)
 
-        ####### QUEM É pri, Tri????
-        for i in range(len(self.yc)):
+        for i in range(len(self.y)):
             b[i] = self.omegab*self.Pr[i]/self.Tr[i]
-        for i in range(len(self.xc)):
+        for i in range(len(self.x)):
             a[i] = self.omegaa*self.Pr[i]/self.Tr[i]**2 * (1+self.M(self.w[i])*(1-np.sqrt(self.Tr[i])))**2
 
-        for i in range(len(self.yc)):
-            for j in range(len(self.xc)):
+        for i in range(len(self.y)):
+            for j in range(len(self.x)):
                 if i == j:
-                    aliq += self.xc[i]*self.xc[j]
-                    agas += self.yc[i]*self.yc[j]
+                    aliq += self.x[i]*self.x[j]
+                    agas += self.y[i]*self.y[j]
                 else:
-                    aliq += self.xc[i]*self.xc[j]*Aij
-                    agas += self.yc[i]*self.yc[j]*Aij
+                    aliq += self.x[i]*self.x[j]*Aij
+                    agas += self.y[i]*self.y[j]*Aij
 
-        for i in range(len(self.yc)):
-            bliq += self.xc[i] * b[i]
-            bgas += self.yc[i] * b[i]
+        for i in range(len(self.y)):
+            bliq += self.x[i] * b[i]
+            bgas += self.y[i] * b[i]
 
         self.B[0] = bliq * self.P / (self.R * self.T)
         self.B[1] = bgas * self.P / (self.R * self.T)
