@@ -27,13 +27,41 @@ def newtonraphson(xo, f, df, Eppara):
     
     return roots[-1], erro
 
+class Rachford_Rice:
+    def __init__(self, z, K, Vchute=None):
+        self.K = K
+        self.z = z
+        if Vchute is not None:
+            self.Vchute = Vchute
+        else:
+            self.Vchute = 0.5
+
+    def rachford_rice(self, V):
+        soma = 0
+        for i in range(len(self.K)):
+            soma += self.z[i] * (self.K[i] - 1) / (1 - V + V * self.K[i])
+
+        return soma
+
+    def drachford_rice(self, V):
+        soma = 0
+        for i in range(len(self.K)):
+            soma += self.z[i] * (self.K[i] - 1) ** 2 / (1 + V * (self.K[i] - 1)) ** 2
+
+        return -soma
+
+    def calculate_LV(self):
+        V, _ = newtonraphson(self.Vchute, self.rachford_rice, self.drachford_rice, 10 ** -3)
+        L = 1 - V
+        return V, L
+
 
 class Flash_Algorithm:
 
-    def __init__(self, T=None, Tc=None, P=None, Pc=None, z=None, x=None, y=None, EEC=None, PM=None, Vc=None, Zc=None, w=None, K=None, Vchute=None, calculateonly=None):
+    def __init__(self, T=None, Tc=None, P=None, Pc=None, z=None, x=None, y=None, EEC=None, PM=None, Vc=None, Zc=None, w=None, K=None, Vchute=None):
         self.T, self.Tc, self.P, self.Pc, self.z = T, Tc, P, Pc, z
         self.eec, self.PM, self.Vc, self.Zc, self.w = EEC, PM, Vc, Zc, w
-        self.K = K
+        self.K, self.Vchute = K, Vchute
         self.R = 8.314
         self.x, self.y = x, y
 
@@ -61,18 +89,10 @@ class Flash_Algorithm:
         else:
             raise Exception('EEC deve ser SRK (Soave-Redlich-Kwong) ou PR (Peng-Robinson)!')
 
-        if Vchute is not None:
-            self.Vchute = Vchute
-        else:
-            self.Vchute = 0.5
+        if K is None:
+            self.K()
 
-        if calculateonly == 'Rachford-Rice':
-            if K is None:
-                self.K()
-            self.calculate_LV()
-            print('O V calculado é: ',self.V)
-            print('O L calculado é: ',self.L)
-        elif x is not None and y is not None:
+        if x is not None and y is not None:
             if len(self.x) != len(self.y):
                 raise Exception('x e y devem ter o mesmo tamanho!')
             else:
@@ -83,7 +103,7 @@ class Flash_Algorithm:
 
     def execute(self):
         self.K()
-        self.calculate_LV()
+        Rachford_Rice(z=self.z, K=self.K, Vchute=self.Vchute)
         self.calculate_molar_fractions()
         self.EEC()
 
@@ -92,6 +112,7 @@ class Flash_Algorithm:
         for i in range(len(self.w)):
             self.K[i] = self.Pc[i]/self.P*np.exp(5.37*(1+self.w[i])*(1-self.Tc[i]/self.T))
 
+    """    
     def Rachford_Rice(self, V):
         soma = 0
         for i in range(len(self.K)):
@@ -109,6 +130,7 @@ class Flash_Algorithm:
     def calculate_LV(self):
         self.V, _ = newtonraphson(self.Vchute, self.Rachford_Rice, self.dRachford_Rice, 10**-3)
         self.L = 1 - self.V
+    """
 
     def calculate_molar_fractions(self):
         self.x, self.y = np.zeros(len(self.z)), np.zeros(len(self.z))
@@ -132,7 +154,7 @@ class Flash_Algorithm:
         prod_x = 1
         bgas, bliq = 0, 0
         agas, aliq = 0, 0
-        a = np.zeros(len(self.))
+        a = np.zeros(len(self.x))
         b = np.zeros(len(self.y))
         self.B = np.zeros(len(self.x))
 
