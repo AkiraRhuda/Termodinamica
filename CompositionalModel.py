@@ -3,10 +3,8 @@ import numpy as np
 def scarvorought1966(n):
     return 0.5*(10**(2-n)); ## Critério de parada
 
-
 def f_epest(v_new,v_old):
-    return abs(v_old-v_new)
-    #return abs((v_new - v_old)/v_new)*100 ## Erro Percentual Estimado
+    return abs((v_new - v_old)/v_new)*100 ## Erro Percentual Estimado
 
 
 def newtonraphson(xo, f, df, Eppara):
@@ -59,13 +57,14 @@ class Rachford_Rice:
 
 class Flash_Algorithm:
 
-    def __init__(self, T=None, Tc=None, P=None, Pc=None, z=None, x=None, y=None, EEC=None, kij=None, PM=None, Vc=None, Zc=None, w=None, K=None, Vchute=None):
+    def __init__(self, T=None, Tc=None, P=None, Pc=None, z=None, x=None, y=None, EEC=None, kij=None, PM=None, Vc=None, Zc=None, w=None, M=None, K=None, Vchute=None, a=None, b=None, param=None):
         self.T, self.Tc, self.P, self.Pc, self.z = T, Tc, P, Pc, z
         self.eec, self.PM, self.Vc, self.Zc, self.w = EEC, PM, Vc, Zc, w
-        self.kij, self.K, self.Vchute = kij, K, Vchute
+        self.M, self.kij, self.K, self.Vchute = M, kij, K, Vchute
         self.R = 8.314
         self.x, self.y = x, y
-
+        self.a, self.b = a, b
+        self.it = 0
         if kij is not None:
             self.kij = kij
         else:
@@ -98,20 +97,24 @@ class Flash_Algorithm:
         else:
             raise Exception('EEC deve ser SRK (Soave-Redlich-Kwong) ou PR (Peng-Robinson)!')
 
-        if K is None:
-            self.wilson_correlation()
+        if param == 'mixture':
+            self.mixture()
+
+        """if K is None:
+            self.wilson_correlation()"""
 
         if x is not None and y is not None:
             if len(self.x) != len(self.y):
                 raise Exception('x e y devem ter o mesmo tamanho!')
-            else:
-                self.EEC()
+            """else:
+                self.EEC()"""
 
     def execute(self):
-        self.wilson_correlation()
-        self.Rachford_Rice(V=self.Vchute)
+        self.calculate_LV()
         self.calculate_molar_fractions()
         self.EEC()
+        self.fugacidade()
+        self.verification()
 
     def wilson_correlation(self):
         self.K = np.zeros(len(self.w))
@@ -133,7 +136,10 @@ class Flash_Algorithm:
         return -soma
     
     def calculate_LV(self):
-        self.V, _ = newtonraphson(self.Vchute, self.Rachford_Rice, self.dRachford_Rice, 10**-3)
+        if self.it == 0:
+            self.V, _ = newtonraphson(self.Vchute, self.Rachford_Rice, self.dRachford_Rice, 10**-3)
+        else:
+            self.V, _ = newtonraphson(self.V, self.Rachford_Rice, self.dRachford_Rice, 10 ** -3)
         self.L = 1 - self.V
         return self.V, self.L
 
@@ -145,7 +151,7 @@ class Flash_Algorithm:
 
     ### EEC ###
 
-    def M(self,w):
+    def m(self,w):
         if self.eec == 'PR' or self.eec == 'Peng-Robinson':
             if w<0.49:
                 return 0.37464 + 1.54226*w - 0.26992*w**2
@@ -154,29 +160,30 @@ class Flash_Algorithm:
         else:
             return 0.480 + 1.574*w - 0.176*w**2
 
+
+    def calculate_a_and_b(self):
+        a = np.zeros(len(self.x))
+        b = np.zeros(len(self.y))
+        for i in range(len(self.y)):
+            b[i] = self.omegab*self.Pr[i]/self.Tr[i]
+        for i in range(len(self.x)):
+            a[i] = self.omegaa*self.Pr[i]/self.Tr[i]**2 * (1+self.m(self.w[i])*(1-np.sqrt(self.Tr[i])))**2
+        return a, b
+
     def mixture(self):
         prod_x = 1
         prod_y = 1
         bgas, bliq = 0, 0
         agas, aliq = 0, 0
-        a = np.zeros(len(self.x))
-        b = np.zeros(len(self.y))
         self.B = np.zeros(len(self.x))
         self.A = np.zeros(len(self.x))
-
-
-
-
-        for i in range(len(self.y)):
-            b[i] = self.omegab*self.Pr[i]/self.Tr[i]
-        for i in range(len(self.x)):
-            a[i] = self.omegaa*self.Pr[i]/self.Tr[i]**2 * (1+self.M(self.w[i])*(1-np.sqrt(self.Tr[i])))**2
-
+        if self.a is None and self.b is None:
+            a, b = self.calculate_a_and_b()
+        else:
+            a, b = self.a, self.b
         for i in range(len(self.x)):
             prod_x = prod_x*a[i]
-            prod_y = prod_y*b[i]
         Aij_x = np.sqrt(prod_x)*(1-self.kij)
-        Aij_y = np.sqrt(prod_y) * (1-self.kij)
 
         for i in range(len(self.y)):
             for j in range(len(self.x)):
@@ -185,7 +192,7 @@ class Flash_Algorithm:
                     agas += self.y[i]*self.y[j]*a[i]
                 else:
                     aliq += self.x[i]*self.x[j]*Aij_x
-                    agas += self.y[i]*self.y[j]*Aij_y
+                    agas += self.y[i]*self.y[j]*Aij_x
 
         for i in range(len(self.y)):
             bliq += self.x[i] * b[i]
@@ -204,7 +211,8 @@ class Flash_Algorithm:
     def Zcoef(self, A, B, delta1, delta2):
         self.C1 = 1 # Z**3
         self.C2 = (delta1 + delta2 - 1)*B-1 # Z**2
-        self.C3 = ((A + delta1*delta2 * B**2) - (delta1+delta2)*B*(B+1)) # Z**1
+        #self.C3 = ((A + delta1*delta2 * B**2) - (delta1+delta2)*B*(B+1)) # Z**1
+        self.C3 = A - 3*B**2 - B
         self.C4 = (A*B + delta1*delta2*(B**2)*(B+1))
 
     def Zfunction(self, Z):
@@ -222,7 +230,7 @@ class Flash_Algorithm:
         for i in range(len(self.x)):
             xo = 1
             self.Zcoef(self.A[i],self.B[i], self.delta1, self.delta2)
-            Z1[i], _ = newtonraphson(xo, f=self.Zfunction, df=self.dZfunction, Eppara=10**-6)
+            Z1[i], _ = newtonraphson(xo, f=self.Zfunction, df=self.dZfunction, Eppara=10**-12)
             # Regra de Briot-Ruffini #
             a = self.C1
             b = a*Z1[i]+self.C2
@@ -246,8 +254,6 @@ class Flash_Algorithm:
                 Zmin = min([Z1[i], Z2[i], Z3[i]])
                 Zmax = max([Z1[i], Z2[i], Z3[i]])
                 roots_energy = np.array([self.gibbs_energy(Zmin, i), self.gibbs_energy(Zmax, i)])
-
-
                 if roots_energy[0]>roots_energy[1]:
                     self.Z[i] = Zmax
                 else:
@@ -255,16 +261,18 @@ class Flash_Algorithm:
             else:
                 self.Z[i] = Z1[i]
 
-    def calculateZ_phase(self):
-        pass
-
     def fugacidade(self):
+        # Phi-phi
+        self.fL, self.fV = np.zeros(len(self.x)), np.zeros(len(self.y))
         for i in range(len(self.x)):
-            self.fL, self.self.fV = np.zeros(len(self.x)), np.zeros(len(self.y))
+            self.fL[i] = self.K[i]*self.x[i]*self.P
+            self.fV[i] = self.K[i]*self.y[i]*self.P
+            """
             self.fL[i] = self.phiL[i]*self.x[i]*self.P
             self.fV[i] = self.phiV[i]*self.y[i]*self.P
+            """
 
-    def test(self):
+    def verification(self):
         soma = 0
         for i in range(len(self.y)):
             soma += (self.fL[i]/self.fV[i] - 1)**2
@@ -275,4 +283,6 @@ class Flash_Algorithm:
         else:
             for i in range(len(self.y)):
                 self.K[i] = self.K[i]*(self.fL[i]/self.fV[i])
+                self.wilson_correlation()
+                self.it += 1
                 self.execute()
