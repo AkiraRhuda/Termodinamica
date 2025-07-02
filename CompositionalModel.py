@@ -25,7 +25,8 @@ def newtonraphson(xo, f, df, Eppara):
 
     
     return roots[-1], erro
-"""
+
+
 class Rachford_Rice:
     def __init__(self, z, K, Vchute=None):
         self.K = K
@@ -53,7 +54,6 @@ class Rachford_Rice:
         V, _ = newtonraphson(self.Vchute, self.rachford_rice, self.drachford_rice, 10 ** -3)
         L = 1 - V
         return V, L
-"""
 
 
 class Flash_Algorithm:
@@ -107,12 +107,12 @@ class Flash_Algorithm:
         if x is not None and y is not None:
             if len(self.x) != len(self.y):
                 raise Exception('x e y devem ter o mesmo tamanho!')
-            """else:
-                self.EEC()"""
+
 
     def execute(self):
         self.calculate_LV()
-        self.calculate_molar_fractions()
+        if self.it > 0:
+            self.calculate_molar_fractions()
         self.EEC()
         self.fugacidade()
         self.verification()
@@ -137,8 +137,6 @@ class Flash_Algorithm:
         return -soma
     
     def calculate_LV(self):
-        #plt.plot(self.Rachford_Rice(np.linspace(0,2,100)))
-        #plt.show()
 
         if self.it == 0:
             self.V, _ = newtonraphson(self.Vchute, self.Rachford_Rice, self.dRachford_Rice, 10**-6)
@@ -175,19 +173,19 @@ class Flash_Algorithm:
         return a, b
 
     def mixture(self):
-        prod_x = 1
-        prod_y = 1
+        prod_a = 1
         bgas, bliq = 0, 0
         agas, aliq = 0, 0
         self.B = np.zeros(len(self.x))
         self.A = np.zeros(len(self.x))
+        self.Psi = np.zeros(len(2)) # número de fases
         if self.a is None and self.b is None:
             a, b = self.calculate_a_and_b()
         else:
             a, b = self.a, self.b
         for i in range(len(self.x)):
-            prod_x = prod_x*a[i]
-        Aij_x = np.sqrt(prod_x)*(1-self.kij)
+            prod_a = prod_a*a[i]
+        Aij = np.sqrt(prod_a)*(1-self.kij)
 
         for i in range(len(self.y)):
             for j in range(len(self.x)):
@@ -195,17 +193,24 @@ class Flash_Algorithm:
                     aliq += self.x[i]*self.x[j]*a[i]
                     agas += self.y[i]*self.y[j]*a[i]
                 else:
-                    aliq += self.x[i]*self.x[j]*Aij_x
-                    agas += self.y[i]*self.y[j]*Aij_x
+                    aliq += self.x[i]*self.x[j]*Aij
+                    agas += self.y[i]*self.y[j]*Aij
 
         for i in range(len(self.y)):
             bliq += self.x[i] * b[i]
             bgas += self.y[i] * b[i]
+        self.B[0], self.B[1] = bliq, bgas
+        self.A[0], self.A[1] = aliq, agas
 
-        self.B[0] = bliq * self.P / (self.R * self.T)
-        self.B[1] = bgas * self.P / (self.R * self.T)
-        self.A[0] = aliq * self.P / (self.R * self.T)**2
-        self.A[1] = agas * self.P / (self.R * self.T)**2
+        for i in range(len(2)):
+            for j in range(len(self.x)):
+                if i == j:
+                    self.Psi[i] += Aij*self.y[i]
+                else:
+                    self.Psi[i] += Aij*self.y[i]
+
+
+
 
     def gibbs_energy(self, Z, i):
         self.gibbs = ((Z-1)-np.log(Z-self.B[i])
@@ -219,7 +224,7 @@ class Flash_Algorithm:
         self.C4 = (A*B + delta1*delta2*(B**2)*(B+1))
 
     def Zfunction(self, Z):
-        return self.C1*Z**3 + self.C2*Z**2 + self.C3*Z + self.C4
+        return self.C1*Z**3 + self.C2*Z**2 + self.C3*Z - self.C4
 
     def dZfunction(self, Z):
         return 3*self.C1*Z**2 + 2*self.C2*Z + self.C3
@@ -264,16 +269,16 @@ class Flash_Algorithm:
             else:
                 self.Z[i] = Z1[i]
 
+    def calculate_phi(self):
+
+
     def fugacidade(self):
         # Phi-phi
         self.fL, self.fV = np.zeros(len(self.x)), np.zeros(len(self.y))
         for i in range(len(self.x)):
-            self.fL[i] = self.K[i]*self.x[i]*self.P
-            self.fV[i] = self.K[i]*self.y[i]*self.P
-            """
-            self.fL[i] = self.phiL[i]*self.x[i]*self.P
-            self.fV[i] = self.phiV[i]*self.y[i]*self.P
-            """
+            self.phiL, self.phiV =
+            self.fL[i] = self.phiL*self.x[i]*self.P
+            self.fV[i] = self.phiV*self.y[i]*self.P
 
     def verification(self):
         soma = 0
@@ -282,7 +287,8 @@ class Flash_Algorithm:
         if soma < 10**-8 or self.it<10:
             for i in range (len(self.y)):
                 self.K[i] = self.y[i]/self.x[i]
-                print('Resultados: ', self.V, self.L, self.x, self.y, self.K)
+                print('Z', self.Z)
+                #print('Resultados: ', self.V, self.L, self.Z,self.x, self.y, self.K)
         else:
             for i in range(len(self.y)):
                 self.K[i] = self.K[i]*(self.fL[i]/self.fV[i])
