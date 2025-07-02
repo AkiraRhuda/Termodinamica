@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 def scarvorought1966(n):
     return 0.5*(10**(2-n)); ## Critério de parada
@@ -100,8 +101,8 @@ class Flash_Algorithm:
         if param == 'mixture':
             self.mixture()
 
-        """if K is None:
-            self.wilson_correlation()"""
+        if K is None:
+            self.wilson_correlation()
 
         if x is not None and y is not None:
             if len(self.x) != len(self.y):
@@ -123,23 +124,26 @@ class Flash_Algorithm:
 
     def Rachford_Rice(self, V):
         soma = 0
-        for i in range(len(self.K)):
+        for i in range(len(self.z)):
             soma += self.z[i]*(self.K[i]-1)/(1-V+V*self.K[i])
         
         return soma
 
     def dRachford_Rice(self, V):
         soma = 0
-        for i in range(len(self.K)):
+        for i in range(len(self.z)):
             soma += self.z[i]*(self.K[i]-1)**2/(1+V*(self.K[i]-1))**2
     
         return -soma
     
     def calculate_LV(self):
+        #plt.plot(self.Rachford_Rice(np.linspace(0,2,100)))
+        #plt.show()
+
         if self.it == 0:
-            self.V, _ = newtonraphson(self.Vchute, self.Rachford_Rice, self.dRachford_Rice, 10**-3)
+            self.V, _ = newtonraphson(self.Vchute, self.Rachford_Rice, self.dRachford_Rice, 10**-6)
         else:
-            self.V, _ = newtonraphson(self.V, self.Rachford_Rice, self.dRachford_Rice, 10 ** -3)
+            self.V, _ = newtonraphson(self.V, self.Rachford_Rice, self.dRachford_Rice, 10 ** -6)
         self.L = 1 - self.V
         return self.V, self.L
 
@@ -211,8 +215,7 @@ class Flash_Algorithm:
     def Zcoef(self, A, B, delta1, delta2):
         self.C1 = 1 # Z**3
         self.C2 = (delta1 + delta2 - 1)*B-1 # Z**2
-        #self.C3 = ((A + delta1*delta2 * B**2) - (delta1+delta2)*B*(B+1)) # Z**1
-        self.C3 = A - 3*B**2 - B
+        self.C3 = ((A + delta1*delta2 * B**2) - (delta1+delta2)*B*(B+1)) # Z**1
         self.C4 = (A*B + delta1*delta2*(B**2)*(B+1))
 
     def Zfunction(self, Z):
@@ -276,10 +279,10 @@ class Flash_Algorithm:
         soma = 0
         for i in range(len(self.y)):
             soma += (self.fL[i]/self.fV[i] - 1)**2
-        if soma < 10**-8:
+        if soma < 10**-8 or self.it<10:
             for i in range (len(self.y)):
                 self.K[i] = self.y[i]/self.x[i]
-                print('Resultados: ', self.V, self.L, self.x, self.y, self.ZL, self.ZV, self.K)
+                print('Resultados: ', self.V, self.L, self.x, self.y, self.K)
         else:
             for i in range(len(self.y)):
                 self.K[i] = self.K[i]*(self.fL[i]/self.fV[i])
