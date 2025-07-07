@@ -1,5 +1,5 @@
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 def scarvorought1966(n):
     return 0.5*(10**(2-n)); ## Critério de parada
@@ -24,6 +24,7 @@ def newtonraphson(xo, f, df, Eppara):
 
     
     return roots[-1], erro
+
 
 
 class Rachford_Rice:
@@ -64,7 +65,10 @@ class Flash_Algorithm:
         self.R = R
         self.x, self.y = x, y
         self.a, self.b = a, b
+        self.PsiL, self.PsiV = 0, 0
         self.globalit = 0
+        self.B = 0
+        self.A = 0
         if kij is not None:
             self.kij = np.array([[0.0, kij],[kij, 0.0]])
 
@@ -115,7 +119,7 @@ class Flash_Algorithm:
         self.EEC()
         self.fugacidade()
         self.verification()
-        return self.Z, self.x, self.y, self.K
+        return self.x, self.y, self.Z, self.K
 
     def wilson_correlation(self):
         self.K = np.zeros(len(self.w))
@@ -332,5 +336,45 @@ class VolumetricProperties:
         # API = 141 / (d_o/1000) - 131.5
         print('Rho_o calculado: ', rho_o / 1000)
         print('Rho_g calculado: ', rho_g / 1000)
-        print('Vo calculado: ', Vo * 1000)
-        print('Vg calculado: ', Vg * 1000)
+        print('Vo calculado: ', Vo)
+        print('Vg calculado: ', Vg)
+
+class PlotIsotermico:
+    def __init__(self, x, y, p, T, dict):
+
+        components_x = list(zip(*x))
+        components_y = list(zip(*y))
+
+        fig, axs = plt.subplots(nrows=1, ncols=2)
+        fig.suptitle(f'Variação das frações molares - T = {T}K')
+        axs[0].set_title(f'Fase líquida')
+        axs[0].set_xlabel('Pressão (Pa)')
+        axs[0].set_ylabel('Fração molar  (%)')
+        colors = []
+        for i in range(len(dict)):
+            colors.append(np.random.rand(3,))
+
+        for i in range(len(components_x)):
+            compreverse = list(components_x[i])
+            compreverse.reverse()
+            axs[0].plot(p, compreverse, '--o', markersize=6, color=colors[i], zorder=12, label=dict[i])
+            axs[0].set_xlabel('Pressão (Pa)')
+            axs[0].set_ylabel('Fração molar  (%)')
+
+        axs[0].set_xlim([0, max(p)])
+        axs[0].legend(loc='best')
+        axs[0].grid()
+
+        #prev = list(p)
+        #prev.reverse()
+
+        for j in range(len(components_y)):
+
+            axs[1].plot(p, list(components_y[j]), '--o', markersize=6, color=colors[j], zorder=12, label=dict[j])
+            axs[1].set_xlabel('Pressão (Pa)')
+            axs[1].set_ylabel('Fração molar  (%)')
+        axs[1].set_title(f'Fase gás')
+        axs[1].legend(loc='best')
+        axs[1].set_xlim([0, max(p)])
+        axs[1].grid()
+        plt.show()
