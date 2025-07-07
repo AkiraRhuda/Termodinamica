@@ -1,12 +1,11 @@
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 def scarvorought1966(n):
     return 0.5*(10**(2-n)); ## Critério de parada
 
 def f_epest(v_new,v_old):
     return abs((v_new - v_old)/v_new)*100 ## Erro Percentual Estimado
-
 
 def newtonraphson(xo, f, df, Eppara):
     Epest = 100
@@ -58,18 +57,19 @@ class Rachford_Rice:
 
 class Flash_Algorithm:
 
-    def __init__(self, T=None, Tc=None, P=None, Pc=None, z=None, x=None, y=None, EEC=None, kij=None, PM=None, Vc=None, Zc=None, w=None, M=None, K=None, Vchute=None, a=None, b=None, param=None):
+    def __init__(self, T=None, Tc=None, P=None, Pc=None, z=None, x=None, y=None, EEC=None, kij=None, PM=None, Vc=None, Zc=None, w=None, M=None, K=None, R=None, Vchute=None, a=None, b=None, param=None):
         self.T, self.Tc, self.P, self.Pc, self.z = T, Tc, P, Pc, z
         self.eec, self.PM, self.Vc, self.Zc, self.w = EEC, PM, Vc, Zc, w
         self.M, self.kij, self.K, self.Vchute = M, kij, K, Vchute
-        self.R = 8.314
+        self.R = R
         self.x, self.y = x, y
         self.a, self.b = a, b
-        self.it = 0
+        self.globalit = 0
         if kij is not None:
-            self.kij = kij
+            self.kij = np.array([[0.0, kij],[kij, 0.0]])
+
         else:
-            self.kij = 0
+            self.kij = np.array([[0.0, 0],[0, 0.0]])
 
         if Vchute is None:
             self.Vchute = 0.5
@@ -108,14 +108,14 @@ class Flash_Algorithm:
             if len(self.x) != len(self.y):
                 raise Exception('x e y devem ter o mesmo tamanho!')
 
-
     def execute(self):
         self.calculate_LV()
-        if self.it > 0:
+        if self.globalit > 0:
             self.calculate_molar_fractions()
         self.EEC()
         self.fugacidade()
         self.verification()
+        return self.Z, self.x, self.y, self.K
 
     def wilson_correlation(self):
         self.K = np.zeros(len(self.w))
@@ -138,7 +138,7 @@ class Flash_Algorithm:
     
     def calculate_LV(self):
 
-        if self.it == 0:
+        if self.globalit == 0:
             self.V, _ = newtonraphson(self.Vchute, self.Rachford_Rice, self.dRachford_Rice, 10**-6)
         else:
             self.V, _ = newtonraphson(self.V, self.Rachford_Rice, self.dRachford_Rice, 10 ** -6)
@@ -162,7 +162,6 @@ class Flash_Algorithm:
         else:
             return 0.480 + 1.574*w - 0.176*w**2
 
-
     def calculate_a_and_b(self):
         a = np.zeros(len(self.x))
         b = np.zeros(len(self.y))
@@ -178,39 +177,31 @@ class Flash_Algorithm:
         agas, aliq = 0, 0
         self.B = np.zeros(len(self.x))
         self.A = np.zeros(len(self.x))
-        self.Psi = np.zeros(len(2)) # número de fases
+
         if self.a is None and self.b is None:
             a, b = self.calculate_a_and_b()
         else:
             a, b = self.a, self.b
         for i in range(len(self.x)):
             prod_a = prod_a*a[i]
-        Aij = np.sqrt(prod_a)*(1-self.kij)
+
+        Aij = np.zeros((len(self.x), len(self.x)))
+        for i in range(len(self.x)):
+            for j in range(len(self.x)):
+                Aij[i, j] = np.sqrt(a[i] * a[j]) * (1 - self.kij[i, j])
 
         for i in range(len(self.y)):
             for j in range(len(self.x)):
-                if i == j:
-                    aliq += self.x[i]*self.x[j]*a[i]
-                    agas += self.y[i]*self.y[j]*a[i]
-                else:
-                    aliq += self.x[i]*self.x[j]*Aij
-                    agas += self.y[i]*self.y[j]*Aij
+                aliq += self.x[i]*self.x[j]*Aij[i,j]
+                agas += self.y[i]*self.y[j]*Aij[i,j]
 
         for i in range(len(self.y)):
             bliq += self.x[i] * b[i]
             bgas += self.y[i] * b[i]
         self.B[0], self.B[1] = bliq, bgas
         self.A[0], self.A[1] = aliq, agas
-
-        for i in range(len(2)):
-            for j in range(len(self.x)):
-                if i == j:
-                    self.Psi[i] += Aij*self.y[i]
-                else:
-                    self.Psi[i] += Aij*self.y[i]
-
-
-
+        self.a, self.b = a, b
+        self.Aij = Aij
 
     def gibbs_energy(self, Z, i):
         self.gibbs = ((Z-1)-np.log(Z-self.B[i])
@@ -269,29 +260,77 @@ class Flash_Algorithm:
             else:
                 self.Z[i] = Z1[i]
 
-    def calculate_phi(self):
+    def calculate_psi(self):
+        PsiL = np.zeros(len(self.x))
+        PsiV = np.zeros(len(self.x))
+        for i in range(len(self.x)):
+            for j in range(len(self.x)):
+                PsiL[i] += self.x[j] * self.Aij[i, j]
+                PsiV[i] += self.y[j] * self.Aij[i, j]
+        return PsiL, PsiV
 
+    def calculate_phi(self, Z, A, B, Psi):
+        phivector = []
+        for i in range(len(self.x)):
+            term1 = (Z - 1) * self.b[i]/B
+            term2 = (np.log(Z-B))
+            term3 = A/((self.delta1-self.delta2)*B)
+            term4 = 2*Psi[i]/A - self.b[i]/B
+            term5 = np.log((Z+self.delta1*B)/(Z+ self.delta2*B))
+            phivector.append(np.exp(term1 - term2 - term3*term4*term5))
+
+        return phivector
 
     def fugacidade(self):
         # Phi-phi
+        self.PsiL, self.PsiV = self.calculate_psi()
         self.fL, self.fV = np.zeros(len(self.x)), np.zeros(len(self.y))
+        self.phiL = self.calculate_phi(self.Z[0], self.A[0], self.B[0], self.PsiL)
+        self.phiV = self.calculate_phi(self.Z[1], self.A[1], self.B[1], self.PsiV)
+
         for i in range(len(self.x)):
-            self.phiL, self.phiV =
-            self.fL[i] = self.phiL*self.x[i]*self.P
-            self.fV[i] = self.phiV*self.y[i]*self.P
+            self.fL[i] = self.phiL[i]*self.x[i]*self.P
+            self.fV[i] = self.phiV[i]*self.y[i]*self.P
 
     def verification(self):
         soma = 0
         for i in range(len(self.y)):
             soma += (self.fL[i]/self.fV[i] - 1)**2
-        if soma < 10**-8 or self.it<10:
+
+        if soma < 10**-8:
             for i in range (len(self.y)):
                 self.K[i] = self.y[i]/self.x[i]
-                print('Z', self.Z)
-                #print('Resultados: ', self.V, self.L, self.Z,self.x, self.y, self.K)
+
+            print('########### Resultados ###########')
+            print('V', self.V)
+            print('L', self.L)
+            print('Z', self.Z)
+            print('x', self.x)
+            print('y', self.y)
+            print('K', self.K)
+            print('Total de iterações', self.globalit)
+            VolumetricProperties(x=self.x, y=self.y, P=self.P, Z=self.Z, M=self.M, R=self.R, T=self.T)
         else:
             for i in range(len(self.y)):
                 self.K[i] = self.K[i]*(self.fL[i]/self.fV[i])
-                self.wilson_correlation()
-                self.it += 1
-                self.execute()
+            self.globalit += 1
+            self.execute()
+
+class VolumetricProperties:
+    def __init__(self, x, y, P, Z, M, R, T):
+        rho_o,rho_g = 0, 0
+        Vo, Vg = 0, 0
+
+        for i in range(len(x)):
+            rho_o += x[i] * M[i] * P / (Z[0] * R * T)
+            rho_g += y[i] * M[i] * P / (Z[1] * R * T)
+            Vo += x[i] * P * M[i] / rho_o
+            Vg += y[i] * P * M[i] / rho_g
+        # d_o = rho_o_STC/rho_agua
+        # d_g = rho_g_STC/rho_agua
+        # RGO = Vg/Vo_STC
+        # API = 141 / (d_o/1000) - 131.5
+        print('Rho_o calculado: ', rho_o / 1000)
+        print('Rho_g calculado: ', rho_g / 1000)
+        print('Vo calculado: ', Vo * 1000)
+        print('Vg calculado: ', Vg * 1000)
