@@ -63,7 +63,7 @@ class Flash_Algorithm:
     def __init__(self, T=None, Tc=None, P=None, Pc=None, z=None, x=None, y=None, EEC=None, kij=None, PM=None, Vc=None, Zc=None, w=None, M=None, K=None, R=None, Vchute=None, a=None, b=None, param=None):
         self.T, self.Tc, self.P, self.Pc, self.z = T, Tc, P, Pc, z
         self.eec, self.PM, self.Vc, self.Zc, self.w = EEC, PM, Vc, Zc, w
-        self.M, self.kij, self.K, self.Vchute = M, kij, K, Vchute
+        self.M, self.kij, self.K, self.Vchute = M, kij, np.copy(K), Vchute
         self.R = R
         self.x, self.y = x, y
         self.a, self.b = a, b
@@ -376,17 +376,17 @@ class PlotIsotermico:
 
 
 
-class PlotIsotermicocomponentes:
+class PlotIsotermicoComponentes:
     def __init__(self, x, y, p, T, dict):
 
         components_x = list(zip(*x))
         components_y = list(zip(*y))
 
         fig, axs = plt.subplots(nrows=1, ncols=2)
-        fig.suptitle(f'Variação das frações molares - T = {T}K')
+        fig.suptitle(f'Variação das componentes - T = {T}K')
         axs[0].set_title(f'Fase líquida')
         axs[0].set_xlabel('Pressão (Pa)')
-        axs[0].set_ylabel('Fração molar')
+        axs[0].set_ylabel('Concentração das componentes')
         axs[1].set_ylim([0, 1])
         axs[0].set_ylim([0, 1])
         axs[0].yaxis.set_major_formatter(PercentFormatter(1))
@@ -396,11 +396,9 @@ class PlotIsotermicocomponentes:
             colors.append(np.random.rand(3,))
 
         for i in range(len(components_x)):
-            #compreverse = list(components_x[i])
-            #compreverse.reverse()
             axs[0].plot(p, components_x[i], '--o', markersize=6, color=colors[i], zorder=12, label=dict[i])
             axs[0].set_xlabel('Pressão (Pa)')
-            axs[0].set_ylabel('Fração molar')
+            axs[0].set_ylabel('Concentração das componentes')
 
         axs[1].set_xlim([min(p), max(p)])
         axs[0].legend(loc='best')
@@ -413,24 +411,24 @@ class PlotIsotermicocomponentes:
 
             axs[1].plot(p, list(components_y[j]), '--o', markersize=6, color=colors[j], zorder=12, label=dict[j])
             axs[1].set_xlabel('Pressão (Pa)')
-            axs[1].set_ylabel('Fração molar')
+            axs[1].set_ylabel('Concentração das componentes')
         axs[1].set_title(f'Fase gás')
         axs[1].legend(loc='best')
         axs[1].set_xlim([min(p), max(p)])
         axs[1].grid()
         plt.show()
 
-class PlotIsobaricocomponentes:
+class PlotIsobaricoComponentes:
     def __init__(self, x, y, p, T, dict):
 
         components_x = list(zip(*x))
         components_y = list(zip(*y))
 
         fig, axs = plt.subplots(nrows=1, ncols=2)
-        fig.suptitle(f'Variação das frações molares - P = {p}Pa')
+        fig.suptitle(f'Variação das Componentes - P = {p}Pa')
         axs[0].set_title(f'Fase líquida')
         axs[0].set_xlabel('Pressão (Pa)')
-        axs[0].set_ylabel('Fração molar')
+        axs[0].set_ylabel('Concentração das componentes')
         axs[1].set_ylim([0, 1])
         axs[0].set_ylim([0, 1])
         axs[0].yaxis.set_major_formatter(PercentFormatter(1))
@@ -440,24 +438,20 @@ class PlotIsobaricocomponentes:
             colors.append(np.random.rand(3,))
 
         for i in range(len(components_x)):
-            #compreverse = list(components_x[i])
-            #compreverse.reverse()
             axs[0].plot(T, components_x[i], '--o', markersize=6, color=colors[i], zorder=12, label=dict[i])
             axs[0].set_xlabel('Pressão (Pa)')
-            axs[0].set_ylabel('Fração molar')
+            axs[0].set_ylabel('Concentração das componentes')
 
         axs[1].set_xlim([min(T), max(T)])
         axs[0].legend(loc='best')
         axs[0].grid()
 
-        #prev = list(p)
-        #prev.reverse()
 
         for j in range(len(components_y)):
 
             axs[1].plot(T, list(components_y[j]), '--o', markersize=6, color=colors[j], zorder=12, label=dict[j])
             axs[1].set_xlabel('Pressão (Pa)')
-            axs[1].set_ylabel('Fração molar  (%)')
+            axs[1].set_ylabel('Concentração das componentes')
         axs[1].set_title(f'Fase gás')
         axs[1].legend(loc='best')
         axs[1].set_xlim([min(T), max(T)])
