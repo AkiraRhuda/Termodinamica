@@ -355,9 +355,9 @@ class PlotIsotermico:
             colors.append(np.random.rand(3,))
 
         for i in range(len(components_x)):
-            compreverse = list(components_x[i])
-            compreverse.reverse()
-            axs[0].plot(p, compreverse, '--o', markersize=6, color=colors[i], zorder=12, label=dict[i])
+            #compreverse = list(components_x[i])
+            #compreverse.reverse()
+            axs[0].plot(p, components_x[i], '--o', markersize=6, color=colors[i], zorder=12, label=dict[i])
             axs[0].set_xlabel('Pressão (Pa)')
             axs[0].set_ylabel('Fração molar  (%)')
 
@@ -376,5 +376,45 @@ class PlotIsotermico:
         axs[1].set_title(f'Fase gás')
         axs[1].legend(loc='best')
         axs[1].set_xlim([0, max(p)])
+        axs[1].grid()
+        plt.show()
+
+class PlotIsobarico:
+    def __init__(self, x, y, p, T, dict):
+
+        components_x = list(zip(*x))
+        components_y = list(zip(*y))
+
+        fig, axs = plt.subplots(nrows=1, ncols=2)
+        fig.suptitle(f'Variação das frações molares - P = {p}Pa')
+        axs[0].set_title(f'Fase líquida')
+        axs[0].set_xlabel('Pressão (Pa)')
+        axs[0].set_ylabel('Fração molar  (%)')
+        colors = []
+        for i in range(len(dict)):
+            colors.append(np.random.rand(3,))
+
+        for i in range(len(components_x)):
+            #compreverse = list(components_x[i])
+            #compreverse.reverse()
+            axs[0].plot(T, components_x[i], '--o', markersize=6, color=colors[i], zorder=12, label=dict[i])
+            axs[0].set_xlabel('Pressão (Pa)')
+            axs[0].set_ylabel('Fração molar  (%)')
+
+        axs[0].set_xlim([0, max(T)])
+        axs[0].legend(loc='best')
+        axs[0].grid()
+
+        #prev = list(p)
+        #prev.reverse()
+
+        for j in range(len(components_y)):
+
+            axs[1].plot(T, list(components_y[j]), '--o', markersize=6, color=colors[j], zorder=12, label=dict[j])
+            axs[1].set_xlabel('Pressão (Pa)')
+            axs[1].set_ylabel('Fração molar  (%)')
+        axs[1].set_title(f'Fase gás')
+        axs[1].legend(loc='best')
+        axs[1].set_xlim([0, max(T)])
         axs[1].grid()
         plt.show()
