@@ -21,4 +21,4 @@ K = np.array([3.1266,0.3073])
 x, y, _, _ = Flash_Algorithm(T=T, Tc=Tc, P=P, Pc=Pc, x=x, y=y, z=z, EEC='PR', w=w, K=K, R=R, kij=kij, M=M).execute()
 
 
-Flash_Algorithm(T=T, Tc=Tc, P=P, Pc=Pc, x=x, y=y, z=z, EEC='PR', w=w, K=K, R=R, kij=kij, M=M).execute()
+#Flash_Algorithm(T=T, Tc=Tc, P=P, Pc=Pc, x=x, y=y, z=z, EEC='PR', w=w, K=K, R=R, kij=kij, M=M).execute()
