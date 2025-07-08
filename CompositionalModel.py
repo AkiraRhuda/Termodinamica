@@ -404,9 +404,6 @@ class PlotIsotermicoComponentes:
         axs[0].legend(loc='best')
         axs[0].grid()
 
-        prev = list(p)
-        prev.reverse()
-
         for j in range(len(components_y)):
 
             axs[1].plot(p, list(components_y[j]), '--o', markersize=6, color=colors[j], zorder=12, label=dict[j])
