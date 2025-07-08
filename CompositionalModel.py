@@ -286,7 +286,7 @@ class Flash_Algorithm:
 
         return phivector
 
-    def fugacidade(self):
+    def calculate_fugacity(self):
         # Phi-phi
         self.PsiL, self.PsiV = self.calculate_psi()
         self.fL, self.fV = np.zeros(len(self.x)), np.zeros(len(self.y))
